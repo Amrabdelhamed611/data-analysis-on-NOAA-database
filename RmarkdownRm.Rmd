@@ -1,0 +1,74 @@
+---
+title: "Title"
+output: 
+  html_document:
+    keep_md: true
+---
+## synopsis that describes and summarizes the data analysis in less than 10 sentences
+
+
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+##Loading the required packages for the analysis
+```{r,results = "hold",warning=FALSE,message=FALSE,error=FALSE}
+
+```
+## Data Processing 
+download the data and loading it to R
+```{r,echo = TRUE ,cache=TRUE}
+#download the data from the link
+if(!file.exists("NOAADataset.csv.bz2")){
+    url <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
+    download.file(url, destfile= "NOAADataset.csv.bz2") 
+}
+#unzip the data and load the data read csv will handel the unzip of the file 
+#bz2 is slow due to high comperssion so cacheing her is usefull
+NOAADataset <-read.csv("NOAADataset.csv.bz2")
+```
+subset the columns we needed for the analysis
+```{r,echo = TRUE }
+colsName <-  c("EVTYPE","FATALITIES","INJURIES","PROPDMG",
+               "PROPDMGEXP","CROPDMG","CROPDMGEXP")
+NOAASub <- subset(NOAADataset,select =colsName)
+NOAASub$PROPDMGEXP <- as.factor(toupper(NOAASub$PROPDMGEXP))
+NOAASub$CROPDMGEXP <- as.factor(toupper(NOAASub$CROPDMGEXP))
+NOAASub$EVTYPE <- as.factor(toupper(NOAASub$EVTYPE))
+
+```
+#PROPDMGEXP and CROPDMGEXP decode
+```{r,echo = TRUE }
+colsName <-  c("EVTYPE","FATALITIES","INJURIES","PROPDMG",
+               "PROPDMGEXP","CROPDMG","CROPDMGEXP")
+NOAASub <- subset(NOAADataset,select =colsName)
+levels(NOAASub$CROPDMGEXP)
+levels(NOAASub$PROPDMGEXP)
+```
+will assign values accourding to union output as will assign it to names
+"" ,"-" ,"?" ,"+" = 0 ,and the numeric's = 1
+"K" for thousands,"M" for millions,"B" for billions, and "H" for hundreds
+```{r,echo = TRUE }
+decode <- c(rep(0,4),rep(1,9),10**12,100,10**3,10**6)
+names(decode) <- as.factor(union(levels(NOAASub$PROPDMGEXP),levels(NOAASub$CROPDMGEXP)))
+decode
+
+```
+xpdecoder function which will handel the decode from symboles to numeric
+```{r,echo = TRUE }
+xpdecoder <- function(decodedvar){
+    if(as.character(decodedvar)==""){
+        var0 <- 0
+    } else {
+        var0 <-decode[as.character(decodedvar)]
+        }
+    return(var0)
+}
+
+```
+sum the caused grouped by the event ,CROPDMGEXP, and PROPDMGEXP to minmize the rows to make decoding more faster as the number of rows will decreased
+```{r,echo = TRUE }
+
+lmd <- aggregate(.~EVTYPE + CROPDMGEXP +PROPDMGEXP, data = NOAASub, sum)
+```

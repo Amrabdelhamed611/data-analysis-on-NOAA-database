@@ -1,44 +1,44 @@
 ---
-title: "Title"
-output: 
+title: "Natural disasters effects on US economy and population"
+output:
   html_document:
     keep_md: true
+  md_document:
+    variant = "markdown_github" 
 ---
-## synopsis that describes and summarizes the data analysis in less than 10 sentences
-
-
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+## Analysis Description
+This data analysis address natural disasters effects on US economy and population , so will investigate the NOAA dataset from [National Climatic Data Center](https://www.ncdc.noaa.gov/) of USA to know total effects on both citizens and economics.and also, investigate which event from all natural disasters events has the greatest economics consequences  ?. And also , which event from all natural disasters events are most harmful to population health?
 
 ##Loading the required packages for the analysis
 ```{r,results = "hold",warning=FALSE,message=FALSE,error=FALSE}
-
+library(ggplot2)
+library(dplyr)
 ```
 ## Data Processing 
-download the data and loading it to R
+Download the data and loading it into R.
 ```{r,echo = TRUE ,cache=TRUE}
 #download the data from the link
 if(!file.exists("NOAADataset.csv.bz2")){
     url <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
-    download.file(url, destfile= "NOAADataset.csv.bz2") 
-}
+    download.file(url, destfile= "NOAADataset.csv.bz2") }
 #unzip the data and load the data read csv will handel the unzip of the file 
 #bz2 is slow due to high comperssion so cacheing her is usefull
 NOAADataset <-read.csv("NOAADataset.csv.bz2")
 ```
-subset the columns we needed for the analysis
+#### Subset the columns we needed for the analysis.
 ```{r,echo = TRUE }
-colsName <-  c("EVTYPE","FATALITIES","INJURIES","PROPDMG",
-               "PROPDMGEXP","CROPDMG","CROPDMGEXP")
+names(NOAADataset)
+```
+We need only event type and each corresponding consequences on both public health and economy.
+```{r,echo = TRUE }
+colsName <- c("EVTYPE","FATALITIES","INJURIES","PROPDMG",
+             "PROPDMGEXP","CROPDMG","CROPDMGEXP")
 NOAASub <- subset(NOAADataset,select =colsName)
 NOAASub$PROPDMGEXP <- as.factor(toupper(NOAASub$PROPDMGEXP))
 NOAASub$CROPDMGEXP <- as.factor(toupper(NOAASub$CROPDMGEXP))
 NOAASub$EVTYPE <- as.factor(toupper(NOAASub$EVTYPE))
-
 ```
-#PROPDMGEXP and CROPDMGEXP decode
+Create Maping varible to PROPDMGEXP and CROPDMGEX to map them from symbols to numeric values.
 ```{r,echo = TRUE }
 colsName <-  c("EVTYPE","FATALITIES","INJURIES","PROPDMG",
                "PROPDMGEXP","CROPDMG","CROPDMGEXP")
@@ -46,16 +46,19 @@ NOAASub <- subset(NOAADataset,select =colsName)
 levels(NOAASub$CROPDMGEXP)
 levels(NOAASub$PROPDMGEXP)
 ```
-will assign values accourding to union output as will assign it to names
-"" ,"-" ,"?" ,"+" = 0 ,and the numeric's = 1
-"K" for thousands,"M" for millions,"B" for billions, and "H" for hundreds
+Now create varible by assigning values of symbols as same order of union output each symbol has value.   
+"" ,"-" ,"?" ,"+" = 0 ,and the numeric's = 1 for "" tricky symbol will convert it to char later.    
+"K" for thousands,"M" for millions,"B" for billions, and "H" for hundreds ,then will name the varible elements as same order of union to map btween symbols and values.
 ```{r,echo = TRUE }
+NOAASub$PROPDMGEXP <- as.factor(toupper(NOAASub$PROPDMGEXP))
+NOAASub$CROPDMGEXP <- as.factor(toupper(NOAASub$CROPDMGEXP))
+NOAASub$EVTYPE <- as.factor(toupper(NOAASub$EVTYPE))
 decode <- c(rep(0,4),rep(1,9),10**12,100,10**3,10**6)
 names(decode) <- as.factor(union(levels(NOAASub$PROPDMGEXP),levels(NOAASub$CROPDMGEXP)))
 decode
-
 ```
-xpdecoder function which will handel the decode from symboles to numeric
+### assigning the numeric values insted of symbols.      
+xpdecoder function which will handel the decode from symboles to numeric values by takeing each row from the dataframe column and convert symboles to numeric values.
 ```{r,echo = TRUE }
 xpdecoder <- function(decodedvar){
     if(as.character(decodedvar)==""){
@@ -63,12 +66,83 @@ xpdecoder <- function(decodedvar){
     } else {
         var0 <-decode[as.character(decodedvar)]
         }
-    return(var0)
-}
-
+    return(var0)}
 ```
-sum the caused grouped by the event ,CROPDMGEXP, and PROPDMGEXP to minmize the rows to make decoding more faster as the number of rows will decreased
+But the dataset dimensions too big to iterat twice. 
 ```{r,echo = TRUE }
+dim(NOAASub)
+```
+So will reduce the dimensions by sum the rows according to the event ,CROPDMGEXP, and PROPDMGEXP to minmize the rows to make decoding more faster. 
+```{r,echo = TRUE }
+NOAASub <- aggregate(.~EVTYPE + CROPDMGEXP +PROPDMGEXP, data = NOAASub, sum)
+dim(NOAASub)
+```
+Now can decode more faster after this reduction.
+```{r,echo = TRUE }
+NOAASub$CROPDMGEXP<- sapply(NOAASub$CROPDMGEXP, xpdecoder)
+NOAASub$PROPDMGEXP<- sapply(NOAASub$PROPDMGEXP, xpdecoder)
+```
+After decoding now will multiply CROPDMGEXP and PROPDMGEXP to there corresponding columns
+and drop CROPDMGEXP and PROPDMGEXP because there no more use to them in the analysis.
+```{r,echo = TRUE }
+NOAASub$CROPDMG <-as.numeric( NOAASub$CROPDMGEXP * NOAASub$CROPDMG)
+NOAASub$PROPDMG <-as.numeric( NOAASub$PROPDMGEXP * NOAASub$PROPDMG)
+NOAASub <- subset(NOAASub,select = -c(CROPDMGEXP,PROPDMGEXP) )
+```
+Now will sum the data over event type to make each event has single row,
+Tthen sum the FATALITIES and INJURIES, to get which types of events harmful with respect to population health.
+And, also sum the crop damge and properties damge, to get which types of events have the greatest economic consequences 
+```{r,echo = TRUE }
+NOAASub <- aggregate(.~EVTYPE, data =NOAASub, sum)
+NOAASub$HarmfulHealth <-rowSums(NOAASub[,c("FATALITIES","INJURIES")])
+NOAASub$HarmfulEconomic <-rowSums(NOAASub[,c("CROPDMG","PROPDMG")])
+```
+      
+## Results
+### Total effects of events.
+```{r,echo = TRUE }
+Fatalities <-sum(NOAASub$FATALITIES)
+paste("Total Fatalities near",round(Fatalities/10**3,2)," thousand citizen.")
+Injuries <- sum(NOAASub$INJURIES)
+paste("Total Injuries near",round(Injuries/10**3,2)," thousand citizen.")
+PropDmg <- sum(NOAASub$PROPDMG)
+paste("Total properties damage cost around",round(PropDmg/10**12,2)," billion US dollar.")
+CropDmg <- sum(NOAASub$CROPDMG)
+paste("Total crops damage cost around",round(CropDmg/10**12,2)," billion US dollar.")
+```
+     
+### Events harmful with respect to population health.
+```{r,echo = TRUE }
+TopHealthHarm <- arrange(NOAASub,HarmfulHealth) %>%
+                 subset(.,select = c(EVTYPE,HarmfulHealth))%>% `rownames<-`(.,NULL) %>%
+                 top_n(.,10) 
+g<-ggplot(TopHealthHarm , aes(x=EVTYPE, y= HarmfulHealth/10**3)) 
+(g + geom_bar(stat="identity",width=0.5, color="black", fill="red4")
+   + coord_flip()
+   + labs(title = "Events most harmful with respect to population health") 
+   + labs(x = "Event Type", y = "FATALITIES and INJURIES (by thousands)")
+   + theme_minimal()    )
+toph <- TopHealthHarm[which.max(TopHealthHarm$HarmfulHealth),]
+paste(toph[[1]],"'s are the most harmful with respect to population health on ",round(toph[2]/10**3,4)," thousands citizen",sep = "")
+```
+            
+### Types of events have the greatest economic consequences
+```{r,echo = TRUE }
+TopEconHarm <- arrange(NOAASub,HarmfulEconomic) %>%
+               subset(.,select = c(EVTYPE,HarmfulEconomic)) %>%
+               top_n(.,10)
 
-lmd <- aggregate(.~EVTYPE + CROPDMGEXP +PROPDMGEXP, data = NOAASub, sum)
+p<-ggplot(TopEconHarm , aes(x=as.factor(EVTYPE), y= (HarmfulEconomic/10**12))) 
+(p + geom_bar(stat="identity",width=0.5,color="black", fill="blue3")
+   + coord_flip()
+   + labs(title = "Events have the greatest economic consequences ") 
+   + labs(x = "Event Type", y = "economic cost by billions US dollar")
+   + theme_minimal()  )
+toph <- TopEconHarm[which.max(TopEconHarm$HarmfulEconomic),]
+paste(toph[[1]],"'s has the most greatest economic consequences near to  ",round(toph[2]/10**12,4)," billion US dollar",sep = "")
+```
+```{r, include=FALSE,results = "hold",warning=FALSE,message=FALSE,error=FALSE}
+   # add this chunk to end of mycode.rmd
+   file.rename(from="RmarkdownRm.md", 
+               to="README.md")
 ```

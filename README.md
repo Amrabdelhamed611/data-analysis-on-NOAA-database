@@ -1,11 +1,5 @@
----
-title: "Natural disasters effects on US economy and population"
-output:
-  html_document:
-    keep_md: true
-  md_document:
-    variant = "markdown_github" 
----
+# Natural disasters effects on US economy and population
+
 ## Analysis Description
 This data analysis address natural disasters effects on US economy and population , so will investigate the NOAA dataset from [National Climatic Data Center](https://www.ncdc.noaa.gov/) of USA to know total effects on both citizens and economics.and also, investigate which event from all natural disasters events has the greatest economics consequences  ?. And also , which event from all natural disasters events are most harmful to population health?
 
